@@ -17,21 +17,36 @@ export const getStaticProps = async (context) => {
   const getData = await fetch(`${endpoint}/articles`);
   const { data } = await getData.json();
 
+  const getPriceOptions = data
+    .map((item) => item.node.shopifyProductEu.variants.edges[0].node.price)
+    .sort((a, b) => a - b);
+
   return {
     props: {
       totalArticles: data.length,
       articlesList: data.slice(0, 30),
       colorOptions: getFilterOptions(data, "colorFamily", (item) => item.name),
+      priceOptions: {
+        min: parseInt(getPriceOptions[0]),
+        max: parseInt(getPriceOptions[getPriceOptions.length - 1]),
+      },
     },
   };
 };
 
-export default ({ totalArticles, articlesList, colorOptions }) => {
+export default ({
+  totalArticles,
+  articlesList,
+  colorOptions,
+  priceOptions,
+}) => {
   const [filters, setFilters] = useState([]);
+  const [colorFilters, setColorFilters] = useState([]);
   const [data, setData] = useState(articlesList);
+  const [price, setPrice] = useState(priceOptions.max);
 
-  const handleFilterClick = (color) => {
-    setFilters((state) => {
+  const handleColorClick = (color) => {
+    setColorFilters((state) => {
       if (state.includes(color)) return state.filter((item) => item !== color);
 
       return [...state, color];
@@ -51,20 +66,26 @@ export default ({ totalArticles, articlesList, colorOptions }) => {
     );
   };
 
+  const handlePriceRange = (ev) => {
+    ev.preventDefault();
+    const value = ev.currentTarget.value;
+
+    setPrice(value);
+  };
+
   useEffect(() => {
-    console.log("gettign data ");
-    if (filters.length === 0) return setData(articlesList);
+    if (colorFilters.length === 0) return setData(articlesList);
 
     const getData = async () => {
       const req = await fetch(
-        `${endpoint}/articles/colors/${filters.join("&")}`
+        `${endpoint}/articles/color=${colorFilters.join("&")}/price=100`
       );
       const data = await req.json();
       setData(data.data);
     };
 
     getData();
-  }, [filters]);
+  }, [colorFilters]);
 
   return (
     <>
@@ -74,10 +95,21 @@ export default ({ totalArticles, articlesList, colorOptions }) => {
         <ul>
           {colorOptions?.map((color, i) => (
             <li key={i}>
-              <button onClick={() => handleFilterClick(color)}>{color}</button>
+              <button onClick={() => handleColorClick(color)}>{color}</button>
             </li>
           ))}
         </ul>
+        <label>
+          <input
+            onChange={handlePriceRange}
+            value={price}
+            type="range"
+            name="price"
+            min={priceOptions.min}
+            max={priceOptions.max}
+          />
+          Price ({price})
+        </label>
         <button onClick={() => setFilters([])}>reset filters</button>
       </div>
       <span>
